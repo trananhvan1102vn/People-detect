@@ -9,40 +9,45 @@ from email.message import EmailMessage
 import imghdr
 
 
-# these will need to be fleshed out to not miss any formats
+# Các đuôi file có thể check
 IMG_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.tiff', '.gif']
 VID_EXTENSIONS = ['.mov', '.mp4', '.avi', '.mpg', '.mpeg', '.m4v', '.mkv']
 
-# used to make sure we are at least examining one valid file
+# Flag dùng để check ít nhất 1 file có thể đọc được
 VALID_FILE_ALERT = False
-# if an error is dectected, even once. Used for alerts
+# Flag dùng để check error - tạo thông báo error
 ERROR_ALERT = False
-# used for alerts. True if human found once
+# Flag dùng để báo đã check có object = người
 HUMAN_DETECTED_ALERT = False
 
 
-# function takes a file name(full path), checks that file for human shaped objects
-# saves the frames with people detected into directory named 'save_directory'
-def humanChecker(video_file_name, save_directory, yolo='yolov4', continuous=False, nth_frame=10, confidence=.65,
+# function lấy File name (lấy cả extension - đuôi file), kiểm tra có vật thể = người không (gồm ảnh vào video - offline)
+# lưu các frame xác định object = người vào folder 'saved_directory'
+# hop_frame - bước nhảy frame trên video (vd: hop_frame = 10 -> cứ 10 frame check 1 )
+# yolo = 'yolov4' - sử dụng yolov4 để lấy model người check (có thể dùng cái khác nhanh hơn nhưng sai số sẽ cao hơn )
+# continuous - lúc dùng commandline sẽ set cái này để video dù check dc object = người thì vẫn check tiếp
+# confidence = .65 - tiêu chuẩn check (vd nếu trên 65% thì sẽ báo là người )
+# gpu - để mặc định là false, chạy trên cpu
+def humanChecker(video_file_name, save_directory, yolo='yolov4', continuous=False, hop_frame=10, confidence=.65,
                  gpu=False):
-    # for modifying our global variarble VALID_FILE
+    # Khai báo global để ngoài hàm vẫn thay đổi dc
     global VALID_FILE_ALERT
 
-    # tracking if we've found a human or not
+    # Chắc dễ hiểu lười ghi
     is_human_found = False
     analyze_error = False
     is_valid = False
 
-    # we'll need to increment every time a person is detected for file naming
+    # biến đếm lượt người
     person_detection_counter = 0
 
-    # check if image
+    # Kiểm tra xem có phải file dạng ảnh
     if os.path.splitext(video_file_name)[1] in IMG_EXTENSIONS:
-        frame = cv2.imread(video_file_name)  # our frame will just be the image
-        # make sure it's a valid image
+        frame = cv2.imread(video_file_name)  # frame sẽ là ảnh đó - biến dùng chung với video : video_file_name
+        # file ảnh có thể lỗi - check xem có lỗi không
         if frame is not None:
-            frame_count = 8  # this is necessary so our for loop runs below
-            nth_frame = 1
+            frame_count = 8  # Đặt sẵn biến này để check vòng lặp phía dưới
+            hop_frame = 1 # nếu file ảnh thì check từng ảnh
             VALID_FILE_ALERT = True
             is_valid = True
             print(f'Image')
@@ -51,12 +56,12 @@ def humanChecker(video_file_name, save_directory, yolo='yolov4', continuous=Fals
             analyze_error = True
 
 
-    # check if video
+    # Kiểm tra xem có phải file video
     elif os.path.splitext(video_file_name)[1] in VID_EXTENSIONS:
         vid = cv2.VideoCapture(video_file_name)
-        # get approximate frame count for video
+        # Biến tổng số frame của file video - sẽ có thể không chính xác
         frame_count = int(vid.get(cv2.CAP_PROP_FRAME_COUNT))
-        # make sure it's a valid video
+        # file video có thể lỗi - check xem có lỗi không
         if frame_count > 0:
             VALID_FILE_ALERT = True
             is_valid = True
@@ -68,19 +73,22 @@ def humanChecker(video_file_name, save_directory, yolo='yolov4', continuous=Fals
         print(f'\nSkipping {video_file_name}')
 
     if is_valid:
-        # look at every nth_frame of our video file, run frame through detect_common_objects
-        # Increase 'nth_frame' to examine fewer frames and increase speed. Might reduce accuracy though.
-        # Note: we can't use frame_count by itself because it's an approximation and could lead to errors
-        for frame_number in range(1, frame_count - 6, nth_frame):
+        # Mỗi hop_frame của Video sẽ check 1 frame, frame đó sẽ thực hiện hàm detect_common_objects
+        # Tăng bước nhảy hop_frame sẽ tăng tốc độ check, nhưng sai số sẽ tăng
+        # Do frame_count của video có thể sai, nên sẽ -6 - giảm ở biên cuối tránh lỗi
+        for frame_number in range(1, frame_count - 6, hop_frame): # Từ frame 1 -> Tổng frame - 6 -> mỗi bước = hop_frame
 
-            # if not dealing with an image
+            # Check xem file đang xử lý không phải file ảnh
             if os.path.splitext(video_file_name)[1] not in IMG_EXTENSIONS:
-                vid.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
-                _, frame = vid.read()
+                vid.set(cv2.CAP_PROP_POS_FRAMES, frame_number)          #cv2.CAP_PROP_POS_FRAMES để đọc đúng vị trí frame_number
+                _, frame = vid.read()                                   # Đọc frame thứ frame number
 
-            # feed our frame (or image) in to detect_common_objects
+            # Dùng frame ở trên ( đã xác định ảnh hay video ) để chạy hàm detect_common_objects
             try:
-
+                #Input: ( frame cần check , lấy model từ thư viện để so sánh,tỉ lệ chấp nhận vật thể và phương thức xử lý )
+                #Output: labels - đang xét phải người không - nên sẽ check labels = person
+                #        bbox - tọa độ vật thể để vẽ object border
+                #        conf - giống với confidence - nếu giá trị cao hơn confidence sẽ chấp nhận vật thể
                 bbox, labels, conf = cvlib.detect_common_objects(frame, model=yolo, confidence=confidence,
                                                                  enable_gpu=gpu)
             except Exception as e:
@@ -88,55 +96,57 @@ def humanChecker(video_file_name, save_directory, yolo='yolov4', continuous=Fals
                 analyze_error = True
                 break
 
-            if 'person' in labels:
+            if 'person' in labels:    # xét vật thể dựa trên model của yolo, nếu là person thì biến đếm tăng và cờ set true
                 person_detection_counter += 1
                 is_human_found = True
 
-                # create image with bboxes showing people and then save
-                marked_frame = cvlib.object_detection.draw_bbox(frame, bbox, labels, conf, write_conf=True)
+                # Tạo ảnh đã check có hiện diện người, tạo khung bbox trong ảnh đó và lưu file ảnh đó
+                marked_frame = cvlib.object_detection.draw_bbox(frame, bbox, labels, conf, write_conf=True)  # tạo ảnh
                 save_file_name = os.path.basename(os.path.splitext(video_file_name)[0]) + '-' + str(
-                    person_detection_counter) + '.jpeg'
+                    person_detection_counter) + '.jpeg'                # Lưu ảnh đuôi jpeg, tại folder directory
                 cv2.imwrite(save_directory + '/' + save_file_name, marked_frame)
 
-                if continuous is False:
+                if continuous is False:          # Nếu argument không check continuous thì khi check video có người dừng cmnl
                     break
 
-    return is_human_found, analyze_error
+    return is_human_found, analyze_error        # return 2 cờ để check
 
 
-# takes a directory and returns all files and directories within
+# lấy đường dẫn và trả về tất cả file và đường dẫn thư mục trong đó
 def getListOfFiles(dir_name):
     list_of_files = os.listdir(dir_name)
     all_files = list()
-    # Iterate over all the entries
+    # Lặp với tất cả file trong thư mục
     for entry in list_of_files:
-        # ignore hidden files and directories
+        # Bỏ qua các file và thư mục hidden
         if entry[0] != '.':
-            # Create full path
+            # Tạo biến lưu đường dẫn
             full_path = os.path.join(dir_name, entry)
-            # If entry is a directory then get the list of files in this directory 
-            if os.path.isdir(full_path):
+            # Nếu entry là một thư mục ( đường dẫn ) thì sẽ chạy đệ quy lại lần nữa lấy các file trong thư mục đó
+            if os.path.isdir(full_path): # hàm check đường dẫn đó là thư mục hay không
                 all_files = all_files + getListOfFiles(full_path)
             else:
-                all_files.append(full_path)
+                all_files.append(full_path)  # Thêm file vào danh sách các file là biến all_files
     return all_files
 
 
 
-
-
+#-------------------------------------------------------------------------------------------------------------------------------
+# Hàm để gửi email thông báo đã check thấy người ------ đã test với hard code Tài khoản, mật khẩu gmail người gửi
+                                                                        # và mail người nhận -------- sẽ triển khai trên GUI
+# Hàm này là tính năng
 def emailAlertSender(save_directory, SENDER_EMAIL, SENDER_PASS, RECEIVER_EMAIL):
-    port = 465  # For SSL
+    port = 465  # For SSL                                         # google thì nó v nên chắc nó thế
     smtp_server = "smtp.gmail.com"
 
-    # set up our message body as contents of log file, if any
+    # Ghi nội dung email dựa trên log file ( nếu có )
     with open(save_directory + '/' + save_directory + '.txt') as f:
         msg = EmailMessage()
         msg.set_content(f.read())
 
     msg['From'] = SENDER_EMAIL
     msg['To'] = RECEIVER_EMAIL
-    if HUMAN_DETECTED_ALERT is True:
+    if HUMAN_DETECTED_ALERT is True:                                          # Điền subject dựa trên các Flag đã tạo
         msg['Subject'] = 'Intruder Alert'
 
     elif HUMAN_DETECTED_ALERT is False and VALID_FILE_ALERT is True:
@@ -146,7 +156,7 @@ def emailAlertSender(save_directory, SENDER_EMAIL, SENDER_PASS, RECEIVER_EMAIL):
         msg['Subject'] = 'No Valid Files Examined'
 
     list_of_files = os.listdir(save_directory)
-    # add our attachments, ignoring the .txt file
+    # Thêm file đính kèm, không bỏ file .txt vào
     for image_file_name in list_of_files:
         if image_file_name[-3:] != 'txt':
             with open(save_directory + '/' + image_file_name, 'rb') as image:
@@ -159,10 +169,12 @@ def emailAlertSender(save_directory, SENDER_EMAIL, SENDER_PASS, RECEIVER_EMAIL):
         server.login(SENDER_EMAIL, SENDER_PASS)
         server.send_message(msg)
 
+#-------------------------------------------------------------------------------------------------------------------------------
 
-#############################################################################################################################
 if __name__ == "__main__":
-
+    # Các argument này để có thể dùng trong cmd
+    # Full commandline ( tự điền nếu muốn hiệu chỉnh ) VD: python main.py -d D:\ --continuous --confidence 70 --frames 12 ( tạm không email với tiny yolo, gpu )
+                                            # chỗ ổ D:\ thay thư mục chi tiết hơn tránh nó tìm r xử lý tới nái
     parser = ArgumentParser()
     parser.add_argument('-d', '--directory', default='', help='Path to video folder')
     parser.add_argument('-f', default='', help='Used to select an individual file')
@@ -173,19 +185,19 @@ if __name__ == "__main__":
                         help='This option will go through entire video file and save all frames with people. Default behavior is to stop after first person sighting.')
     parser.add_argument('--confidence', type=int, choices=range(1, 100), default=65,
                         help='Input a value between 1-99. This represents the percent confidence you require for a hit. Default is 65')
-    parser.add_argument('--frames', type=int, default=10, help='Only examine every nth frame. Default is 10')
+    parser.add_argument('--frames', type=int, default=10, help='Only examine every hop frame. Default is 10')
     parser.add_argument('--gpu', action='store_true',
                         help='Attempt to run on GPU instead of CPU. Requires Open CV compiled with CUDA enables and Nvidia drivers set up correctly.')
 
     args = vars(parser.parse_args())
 
-    # decide which model we'll use, default is 'yolov3', more accurate but takes longer
+    # Sẽ chọn dạng model nào để check, default sẽ set là yolo4, có thể dùng tiny_yolo nhanh hơn nhưng sai số cao hơn yolov4
     if args['tiny_yolo']:
         yolo_string = 'yolov4-tiny'
     else:
         yolo_string = 'yolov4'
 
-    # check our inputs, can only use either -f or -d but must use one
+    # Check đường dẫn input, có thể dùng -f hoặc -d nhưng phải dùng 1 trong 2 ( f dành cho 1 file, d dành cho thư mục )
     if args['f'] == '' and args['directory'] == '':
         print('You must select either a directory with -d <directory> or a file with -f <file name>')
         sys.exit(1)
@@ -193,9 +205,8 @@ if __name__ == "__main__":
         print('Must select either -f or -d but can''t do both')
         sys.exit(1)
 
-    # if the --twilio flag is used, this will look for environment variables holding this needed information
-    # you can hardcode this information here if you'd like though. It's less secure but if you're the only one
-    # using this script it's probably fine
+    # -- email : nếu sử dụng argument này thì có thể hardcode như ở dưới --------> sẽ triển khai làm GUI để nhập sau không hardcode
+    #                                                   không lộ hết -- đã test hàm hoạt động đủ xà
 
     if args['email']:
         try:
@@ -207,14 +218,14 @@ if __name__ == "__main__":
                 'Something went wrong with Email variables. Either set your environment variables or hardcode values in to script')
             sys.exit(1)
 
-    every_nth_frame = args['frames']
-    confidence_percent = args['confidence'] / 100
+    every_hop_frame = args['frames']                                # --frames : Set các bước nhảy frame, default là 10
+    confidence_percent = args['confidence'] / 100                   # --confidence: Set tỷ lệ nhận diện object, default là 65%
 
     gpu_flag = False
     if args['gpu']:
-        gpu_flag = True
+        gpu_flag = True                                             # --gpu : xử lý bằng gpu
 
-    # create a directory to hold snapshots and log file
+    # Tạo thư mục tên là thời gian máy chạy check, lưu trữ các snapshots và file log
     time_stamp = datetime.now().strftime('%m%d%Y-%H%M%S')
     os.mkdir(time_stamp)
 
@@ -222,20 +233,20 @@ if __name__ == "__main__":
     print(f'Directory {time_stamp} has been created')
     print(f"Email notifications set to {args['email']}.")
     print(f"Confidence threshold set to {args['confidence']}%")
-    print(f'Examining every {every_nth_frame} frames.')
+    print(f'Examining every {every_hop_frame} frames.')
     print(f"Continous examination is set to {args['continuous']}")
     print(f"GPU is set to {args['gpu']}")
     print('\n\n')
     print(datetime.now().strftime('%m%d%Y-%H:%M:%S'))
 
-    # open a log file and loop over all our video files
+    # Mở file log và lặp lại trên tất cả các file video
     with open(time_stamp + '/' + time_stamp + '.txt', 'w') as log_file:
         if args['f'] == '':
             video_directory_list = getListOfFiles(args['directory'] + '/')
         else:
             video_directory_list = [args['f']]
 
-        # what video we are on
+        # Set biến thứ tự video đang thực hiện
         working_on_counter = 1
 
         for video_file in video_directory_list:
@@ -243,9 +254,9 @@ if __name__ == "__main__":
                 f'Examining {video_file}: {working_on_counter} of {len(video_directory_list)}: {int((working_on_counter / len(video_directory_list) * 100))}%    ',
                 end='')
 
-            # check for people
+            # Check người trong video
             human_detected, error_detected = humanChecker(str(video_file), time_stamp, yolo=yolo_string,
-                                                          nth_frame=every_nth_frame, confidence=confidence_percent,
+                                                          hop_frame=every_hop_frame, confidence=confidence_percent,
                                                           continuous=args['continuous'], gpu=gpu_flag)
 
             if human_detected:
