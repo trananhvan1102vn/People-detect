@@ -1,12 +1,13 @@
-import cvlib  # high level module, uses YOLO model with the find_common_objects method
-import cv2  # image/video manipulation, allows us to pass frames to cvlib
+import cvlib
+import cv2
 from argparse import ArgumentParser
 import os
 import sys
 from datetime import datetime
-import smtplib, ssl  # for sending email alerts
+import smtplib, ssl
 from email.message import EmailMessage
 import imghdr
+import math
 
 
 # Các đuôi file có thể check
@@ -37,7 +38,8 @@ def humanChecker(video_file_name, save_directory, yolo='yolov4', continuous=Fals
     is_human_found = False
     analyze_error = False
     is_valid = False
-
+    is_video_file = False
+    is_img_file = False
     # biến đếm lượt người
     person_detection_counter = 0
 
@@ -50,6 +52,7 @@ def humanChecker(video_file_name, save_directory, yolo='yolov4', continuous=Fals
             hop_frame = 1 # nếu file ảnh thì check từng ảnh
             VALID_FILE_ALERT = True
             is_valid = True
+            is_img_file = True
             print(f'Image')
         else:
             is_valid = False
@@ -65,23 +68,32 @@ def humanChecker(video_file_name, save_directory, yolo='yolov4', continuous=Fals
         if frame_count > 0:
             VALID_FILE_ALERT = True
             is_valid = True
+            is_video_file = True
             print(f'{frame_count} frames')
         else:
             is_valid = False
+            is_video_file = False
             analyze_error = True
+    elif video_file_name == 'cam':
+        vid = cv2.VideoCapture(0)
+        vid.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        vid.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+
     else:
         print(f'\nSkipping {video_file_name}')
 
     if is_valid:
+
         # Mỗi hop_frame của Video sẽ check 1 frame, frame đó sẽ thực hiện hàm detect_common_objects
         # Tăng bước nhảy hop_frame sẽ tăng tốc độ check, nhưng sai số sẽ tăng
         # Do frame_count của video có thể sai, nên sẽ -6 - giảm ở biên cuối tránh lỗi
-        for frame_number in range(1, frame_count - 6, hop_frame): # Từ frame 1 -> Tổng frame - 6 -> mỗi bước = hop_frame
+        for frame_number in range(1, frame_count - 6 , hop_frame): # Từ frame 1 -> Tổng frame - 6 -> mỗi bước = hop_frame
 
             # Check xem file đang xử lý không phải file ảnh
-            if os.path.splitext(video_file_name)[1] not in IMG_EXTENSIONS:
-                vid.set(cv2.CAP_PROP_POS_FRAMES, frame_number)          #cv2.CAP_PROP_POS_FRAMES để đọc đúng vị trí frame_number
+            if is_video_file:
+                vid.set(cv2.CAP_PROP_POS_FRAMES, frame_number)            #cv2.CAP_PROP_POS_FRAMES để đọc đúng vị trí frame_number
                 _, frame = vid.read()                                   # Đọc frame thứ frame number
+
 
             # Dùng frame ở trên ( đã xác định ảnh hay video ) để chạy hàm detect_common_objects
             try:
@@ -100,10 +112,22 @@ def humanChecker(video_file_name, save_directory, yolo='yolov4', continuous=Fals
                 person_detection_counter += 1
                 is_human_found = True
 
+                time_detect =  frame_count
+
                 # Tạo ảnh đã check có hiện diện người, tạo khung bbox trong ảnh đó và lưu file ảnh đó
                 marked_frame = cvlib.object_detection.draw_bbox(frame, bbox, labels, conf, write_conf=True)  # tạo ảnh
                 save_file_name = os.path.basename(os.path.splitext(video_file_name)[0]) + '-' + str(
                     person_detection_counter) + '.jpeg'                # Lưu ảnh đuôi jpeg, tại folder directory
+                if is_video_file:
+                    first_found = ((str(vid.get(cv2.CAP_PROP_POS_MSEC)/1000//1)))
+                    font = cv2.FONT_HERSHEY_SIMPLEX
+                    org = (50, 50)
+                    fontScale = 1
+                    color = (0, 0, 255)
+                    thickness = 1
+                    cv2.putText(marked_frame, first_found, org, font,
+                                        fontScale, color, thickness, cv2.LINE_AA)
+
                 cv2.imwrite(save_directory + '/' + save_file_name, marked_frame)
 
                 if continuous is False:          # Nếu argument không check continuous thì khi check video có người dừng cmnl
@@ -188,7 +212,6 @@ if __name__ == "__main__":
     parser.add_argument('--frames', type=int, default=10, help='Only examine every hop frame. Default is 10')
     parser.add_argument('--gpu', action='store_true',
                         help='Attempt to run on GPU instead of CPU. Requires Open CV compiled with CUDA enables and Nvidia drivers set up correctly.')
-
     args = vars(parser.parse_args())
 
     # Sẽ chọn dạng model nào để check, default sẽ set là yolo4, có thể dùng tiny_yolo nhanh hơn nhưng sai số cao hơn yolov4
@@ -262,7 +285,7 @@ if __name__ == "__main__":
             if human_detected:
                 HUMAN_DETECTED_ALERT = True
                 print(f'Human detected in {video_file}')
-                log_file.write(f'{video_file} \n')
+                log_file.write(f'{video_file}  \n')
 
             if error_detected:
                 ERROR_ALERT = True
