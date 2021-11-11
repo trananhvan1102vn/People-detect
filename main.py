@@ -112,7 +112,7 @@ def humanChecker(video_file_name, save_directory, yolo='yolov4', continuous=Fals
                 person_detection_counter += 1
                 is_human_found = True
 
-                time_detect =  frame_count
+
 
                 # Tạo ảnh đã check có hiện diện người, tạo khung bbox trong ảnh đó và lưu file ảnh đó
                 marked_frame = cvlib.object_detection.draw_bbox(frame, bbox, labels, conf, write_conf=True)  # tạo ảnh
@@ -127,6 +127,10 @@ def humanChecker(video_file_name, save_directory, yolo='yolov4', continuous=Fals
                     thickness = 1
                     cv2.putText(marked_frame, first_found, org, font,
                                         fontScale, color, thickness, cv2.LINE_AA)
+                    with open('log_detect' + '.txt', 'a') as log_file:
+                        print(f'Human detected at second: {first_found} ')
+                        log_file.write(f'{video_file_name} - times detect: {person_detection_counter} : {first_found} as hopframe = {hop_frame} and confidence = {confidence*100} \n')
+
 
                 cv2.imwrite(save_directory + '/' + save_file_name, marked_frame)
 
@@ -284,7 +288,7 @@ if __name__ == "__main__":
 
             if human_detected:
                 HUMAN_DETECTED_ALERT = True
-                print(f'Human detected in {video_file}')
+                print(f'Human detected in {video_file} ')
                 log_file.write(f'{video_file}  \n')
 
             if error_detected:
