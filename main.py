@@ -7,6 +7,10 @@ from datetime import datetime
 import smtplib, ssl
 from email.message import EmailMessage
 import imghdr
+import numpy as np
+import time
+import math
+
 
 # Các đuôi file có thể check
 IMG_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.tiff', '.gif']
