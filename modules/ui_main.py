@@ -907,7 +907,7 @@ class Ui_MainWindow(object):
         icon8.addFile(u":/icons/images/icons/cil-camera.png", QSize(), QIcon.Normal, QIcon.On)
         self.btnWebcam.setIcon(icon8)
         self.btnMidea = QPushButton(self.groupBox_2)
-        self.btnMidea.setObjectName(u"btnMidea")
+        self.btnMidea.setObjectName(u"btnMedia")
         self.btnMidea.setGeometry(QRect(190, 50, 121, 41))
         icon9 = QIcon()
         icon9.addFile(u":/icons/images/icons/cil-file.png", QSize(), QIcon.Normal, QIcon.On)

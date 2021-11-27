@@ -268,8 +268,15 @@ class MainWindow(QMainWindow):
         print('long')
         urlPath = self.ui.txtUrl.toPlainText()
         print(urlPath)
-        confident = 0.8
-        hop_frame = 80
+        if len(self.ui.txtConfident.toPlainText()) == 0:
+            print("Chọn confidence, mặc định 80\n")
+            self.ui.txtConfident.setText("80")
+        confident = int(self.ui.txtConfident.toPlainText()) / 100
+        # confident = 0.8
+        if len(self.ui.txtFrame.toPlainText()) == 0:
+            print("Chọn frame, mặc định 80\n")
+            self.ui.txtFrame.toPlainText()("80")
+        hop_frame = int(self.ui.txtFrame.toPlainText())
         yoloText = 'yolov4'
         urlPath = str(urlPath)
         time_stamp = datetime.now().strftime('%d%m%Y')
@@ -289,13 +296,14 @@ class MainWindow(QMainWindow):
             print(e)
             analyze_error = True
         self.getDirectory_OutVideo()
+        self.copytext()
 
     def comboBox(self):
         self.ui.cbModel.addItem('yolov4')
         self.ui.cbModel.addItem('yolov4-tiny')
 
     def realtimeHumanDetect(self, confident=0.7, yolo='yolov4-tiny', gpu=False):
-        vid = cv2.VideoCapture(0)
+        vid = cv2.VideoCapture(0, cv2.CAP_DSHOW)
         # width = int(vid.get(cv2.CAP_PROP_FRAME_WIDTH))
         # height = int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT))
         frame_num = 0
@@ -307,17 +315,15 @@ class MainWindow(QMainWindow):
         fontScale = 1
         color = (0, 0, 255)
         thickness = 1
-        confidence_percent = 0.7
+        confidence_percent = int(self.ui.txtConfident.toPlainText())/100
         yoloText = self.ui.cbModel.currentText()
         # yoloText = 'yolov4'
-        yoloText = str(yoloText)
         print(confidence_percent, yoloText)
         gpu_flag = False
         thresh = float(0.3)
         person_detection_counter = 0
         # while video is running
         while True:
-
             check, frame = vid.read()
             frame = cv2.flip(frame, 1)
             try:
@@ -333,6 +339,7 @@ class MainWindow(QMainWindow):
                 counter = str((time.time() - start_time) // 1)
                 cv2.putText(marked_frame, counter, org, font,
                             fontScale, color, thickness, cv2.LINE_AA)
+
                 if 'person' in labels:  # xét vật thể dựa trên model của yolo, nếu là person thì biến đếm tăng và cờ set true
                     is_human_found = True
                     print(f'human found at {counter}')
@@ -342,6 +349,8 @@ class MainWindow(QMainWindow):
             except Exception as e:
                 print(e)
                 analyze_error = True
+                vid.release()
+                cv2.destroyAllWindows()
                 break
             # if 'person' in labels:    # xét vật thể dựa trên model của yolo, nếu là person thì biến đếm tăng và cờ set true
             #     person_detection_counter += 1
@@ -349,18 +358,21 @@ class MainWindow(QMainWindow):
             # else:
             #     print('Video has ended or failed, try a different video format!')
             #     break
-            if cv2.waitKey(1) & 0xFF == ord('q'): break
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                vid.release()
+                cv2.destroyAllWindows()
+                break
         vid.release()
         cv2.destroyAllWindows()
         return is_human_found, analyze_error
 
     def copytext(self):
         time_stamp = str(datetime.now().strftime('%d%m%Y'))
-        cred = credentials.Certificate("D:\\People-Detecting\\serviceAccountKey.json")
+        cred = credentials.Certificate("D:\\People-DetectingFusion\\serviceAccountKey.json")
         firebase_admin.initialize_app(cred)
         db = firestore.client()
         # db.collection('test').document('www').set({'ddd':3})
-        with open('D:\\People-Detecting\\' + time_stamp + '.txt') as rf:
+        with open('D:\\People-DetectingFusion\\' + time_stamp + '.txt') as rf:
 
             line = rf.readline()
             index = 1
