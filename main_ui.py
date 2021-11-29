@@ -275,7 +275,7 @@ class MainWindow(QMainWindow):
         # confident = 0.8
         if len(self.ui.txtFrame.toPlainText()) == 0:
             print("Chọn frame, mặc định 80\n")
-            self.ui.txtFrame.toPlainText()("80")
+            self.ui.txtFrame.setText("80")
         hop_frame = int(self.ui.txtFrame.toPlainText())
         yoloText = 'yolov4'
         urlPath = str(urlPath)
