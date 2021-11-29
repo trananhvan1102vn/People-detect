@@ -158,7 +158,7 @@ class MainWindow(QMainWindow):
         self.ui.btnOpenFile_2.clicked.connect(self.getFileName)
         self.ui.slideConfident.valueChanged.connect(self.numberConfident)
         self.ui.slideFrame.valueChanged.connect(self.numberFrame)
-        self.ui.btnMidea.clicked.connect(self.btnMediaClicked)
+        self.ui.btnMedia.clicked.connect(self.btnMediaClicked)
         self.ui.btnClearLog.clicked.connect(self.clearLog)
         self.ui.browseButton.clicked.connect(self.openFile)
         self.ui.playButton.clicked.connect(self.playTimer)
