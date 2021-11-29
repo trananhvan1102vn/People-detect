@@ -283,7 +283,7 @@ class MainWindow(QMainWindow):
         print(confident, hop_frame, urlPath, yoloText)
         try:
             runningWithImgVideo(confidence_percent=confident, yolo_string=yoloText, hopframe=hop_frame, url=urlPath)
-            with open(f'D:\\People-DetectingFusion\\{time_stamp}.txt') as rf:
+            with open(f'D:\\PeopleDetecting\\{time_stamp}.txt') as rf:
                 line = rf.readline()
                 while line:
                     print(line)
@@ -297,6 +297,7 @@ class MainWindow(QMainWindow):
             analyze_error = True
         self.getDirectory_OutVideo()
         self.copytext()
+        self.splitVideo()
 
     def comboBox(self):
         self.ui.cbModel.addItem('yolov4')
@@ -368,11 +369,11 @@ class MainWindow(QMainWindow):
 
     def copytext(self):
         time_stamp = str(datetime.now().strftime('%d%m%Y'))
-        cred = credentials.Certificate("D:\\People-DetectingFusion\\serviceAccountKey.json")
+        cred = credentials.Certificate("D:\\PeopleDetecting\\serviceAccountKey.json")
         firebase_admin.initialize_app(cred)
         db = firestore.client()
         # db.collection('test').document('www').set({'ddd':3})
-        with open('D:\\People-DetectingFusion\\' + time_stamp + '.txt') as rf:
+        with open('D:\\PeopleDetecting\\' + time_stamp + '.txt') as rf:
 
             line = rf.readline()
             index = 1
@@ -386,16 +387,45 @@ class MainWindow(QMainWindow):
                     break
         print("done")
 
+    def splitVideo(self):
+        startTime = 0
+        endTime = 0
+        time_stamp = datetime.now().strftime('%d%m%Y')
+        with open('D:\\PeopleDetecting\\' + time_stamp + '.txt') as rf:
+            line = rf.readline()
+            x = line.split('-')
+            startTime = round(float(x[2].strip()))
+            nameFile = x[0].strip()
+            index = 1
+            while line:
+                a = line.split('-')
+                tempTime = round(float(a[2].strip()))
+                if endTime < tempTime:
+                    endTime = tempTime
+                line = rf.readline()
+            if startTime > 60:
+                startMinute = round(startTime // 60)
+                startSecond = round(startTime % 60)
+                startTime = f'00:0{startMinute}:{startSecond}'
+            if endTime > 60:
+                endMinute = round(endTime // 60)
+                endSecond = round(endTime % 60)
+                endTime = f'00:0{endMinute}:{endSecond}'
+
+            os.system(f'ffmpeg -ss {startTime} -i {nameFile}  -to {endTime} -filter:v scale=1280:720 -c:a copy {time_stamp_folder}\\{index}.mp4')
+            print("done")
+
+
     def getFileName(self):
         fileName = QFileDialog.getOpenFileName()
         self.ui.txtUrl.setText(fileName[0])
 
     def getDirectory_OutVideo(self):
-        pathIn = f'D:\\People-DetectingFusion\\{time_stamp_folder}'
+        pathIn = f'D:\\PeopleDetecting\\{time_stamp_folder}'
         #pathIn = os.path.dirname(directoryIn)
         print(pathIn)
         namevideo = time_stamp_folder
-        pathOut = f'D:\\People-DetectingFusion\\Demo\\'+namevideo+'.avi'
+        pathOut = f'D:\\PeopleDetecting\\Demo\\'+namevideo+'.avi'
         #pathOut = os.path.dirname(directoryOut)
         fps = 1
         time = 200
@@ -407,6 +437,9 @@ class MainWindow(QMainWindow):
         url = self.ui.txtUrl.toPlainText()
         yolo = self.ui.cbModel.currentText()
         return confidence, hopframe, url, yolo
+
+
+
 
 
 # SPLASH SCREEN

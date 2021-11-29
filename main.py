@@ -118,13 +118,17 @@ def humanChecker(video_file_name, save_directory, yolo='yolov4', hop_frame=10, c
                 save_file_name = os.path.basename(os.path.splitext(video_file_name)[0]) + '-' + str(
                     person_detection_counter) + '.jpeg'                # Lưu ảnh đuôi jpeg, tại folder directory
                 if is_video_file:
-                    first_found = ((str(vid.get(cv2.CAP_PROP_POS_MSEC)/1000//1)))
+                    first_found = int(float(str(vid.get(cv2.CAP_PROP_POS_MSEC)/1000//1)))
+                    if first_found > 60:
+                        startMinute = first_found // 60
+                        startSecond = first_found % 60
+                        startTime = f'00:0{startMinute}:{startSecond} {video_file_name}'
                     font = cv2.FONT_HERSHEY_SIMPLEX
                     org = (50, 50)
                     fontScale = 1
                     color = (0, 0, 255)
                     thickness = 1
-                    cv2.putText(marked_frame, first_found, org, font,
+                    cv2.putText(marked_frame, startTime, org, font,
                                         fontScale, color, thickness, cv2.LINE_AA)
                     time_stamp = datetime.now().strftime('%d%m%Y')
                     with open(time_stamp + '.txt', 'a') as log_file:

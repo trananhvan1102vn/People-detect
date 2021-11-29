@@ -116,7 +116,6 @@ class MainWindow:
         person_detection_counter = 0
         # while video is running
         while True:
-
             check, frame = vid.read()
             frame = cv2.flip(frame, 1)
             try:
