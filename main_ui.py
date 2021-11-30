@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import *
 from main import *
 from firebase_admin import credentials
 from firebase_admin import firestore
-
+from datetime import timedelta
 import cv2
 import os
 from os.path import isfile, join
@@ -28,7 +28,7 @@ os.environ["QT_FONT_DPI"] = "96"  # FIX Problem for High DPI and Scale above 100
 widgets = None
 ## ==> GLOBALS
 counter = 0
-
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 time_stamp_folder = datetime.now().strftime('%m%d%Y-%H%M%S')
 
 def convert_pictures_to_video(pathIn, pathOut, fps, time):
@@ -283,7 +283,7 @@ class MainWindow(QMainWindow):
         print(confident, hop_frame, urlPath, yoloText)
         try:
             runningWithImgVideo(confidence_percent=confident, yolo_string=yoloText, hopframe=hop_frame, url=urlPath)
-            with open(f'D:\\PeopleDetecting\\{time_stamp}.txt') as rf:
+            with open(f'{ROOT_DIR}\\{time_stamp}.txt') as rf:
                 line = rf.readline()
                 while line:
                     print(line)
@@ -369,11 +369,11 @@ class MainWindow(QMainWindow):
 
     def copytext(self):
         time_stamp = str(datetime.now().strftime('%d%m%Y'))
-        cred = credentials.Certificate("D:\\PeopleDetecting\\serviceAccountKey.json")
+        cred = credentials.Certificate(f"{ROOT_DIR}\\serviceAccountKey.json")
         firebase_admin.initialize_app(cred)
         db = firestore.client()
         # db.collection('test').document('www').set({'ddd':3})
-        with open('D:\\PeopleDetecting\\' + time_stamp + '.txt') as rf:
+        with open(f'{ROOT_DIR}\\' + time_stamp + '.txt') as rf:
 
             line = rf.readline()
             index = 1
@@ -391,7 +391,7 @@ class MainWindow(QMainWindow):
         startTime = 0
         endTime = 0
         time_stamp = datetime.now().strftime('%d%m%Y')
-        with open('D:\\PeopleDetecting\\' + time_stamp + '.txt') as rf:
+        with open(f'{ROOT_DIR}\\' + time_stamp + '.txt') as rf:
             line = rf.readline()
             x = line.split('-')
             startTime = round(float(x[2].strip()))
@@ -403,15 +403,16 @@ class MainWindow(QMainWindow):
                 if endTime < tempTime:
                     endTime = tempTime
                 line = rf.readline()
-            if startTime > 60:
-                startMinute = round(startTime // 60)
-                startSecond = round(startTime % 60)
-                startTime = f'00:0{startMinute}:{startSecond}'
-            if endTime > 60:
-                endMinute = round(endTime // 60)
-                endSecond = round(endTime % 60)
-                endTime = f'00:0{endMinute}:{endSecond}'
-
+            # if startTime > 60:
+            #     startMinute = round(startTime // 60)
+            #     startSecond = round(startTime % 60)
+            #     startTime = f'00:0{startMinute}:{startSecond}'
+            # if endTime > 60:
+            #     endMinute = round(endTime // 60)
+            #     endSecond = round(endTime % 60)
+            #     endTime = f'00:0{endMinute}:{endSecond}'
+            startTime = str(timedelta(seconds=startTime))
+            endTime = str(timedelta(seconds=endTime))
             os.system(f'ffmpeg -ss {startTime} -i {nameFile}  -to {endTime} -filter:v scale=1280:720 -c:a copy {time_stamp_folder}\\{index}.mp4')
             print("done")
 
@@ -421,11 +422,11 @@ class MainWindow(QMainWindow):
         self.ui.txtUrl.setText(fileName[0])
 
     def getDirectory_OutVideo(self):
-        pathIn = f'D:\\PeopleDetecting\\{time_stamp_folder}'
+        pathIn = f'{ROOT_DIR}\\{time_stamp_folder}'
         #pathIn = os.path.dirname(directoryIn)
         print(pathIn)
         namevideo = time_stamp_folder
-        pathOut = f'D:\\PeopleDetecting\\Demo\\'+namevideo+'.avi'
+        pathOut = f'{ROOT_DIR}\\Demo\\'+namevideo+'.avi'
         #pathOut = os.path.dirname(directoryOut)
         fps = 1
         time = 200
@@ -437,8 +438,6 @@ class MainWindow(QMainWindow):
         url = self.ui.txtUrl.toPlainText()
         yolo = self.ui.cbModel.currentText()
         return confidence, hopframe, url, yolo
-
-
 
 
 
